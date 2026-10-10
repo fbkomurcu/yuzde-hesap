@@ -118,16 +118,17 @@ function yonlu(d, ozne, beklenen, ters) {
 }
 
 // ---------- 1. sekme: a = rakam, b = yüzde ----------
+// Her işlem: ad + Excel formülü (A2 = 1. kutu, B2 = 2. kutu; fonksiyonsuz, Türkçe/İngilizce Excel'de aynen çalışır) + hesap.
 
 export const YUZDE_ISLEMLERI = [
-  { ad: "%'si ne kadar", kisaAd: "%'si", hesapla: (a, b) => S(tutar((a * b) / 100)) },
-  { ad: "Kârlı hali", kisaAd: "Kârlı hali", hesapla: (a, b) => { const k = (a * b) / 100; return S(tutar(a + k), `Kâr: ${tutar(k)}`); } },
-  { ad: "Zamlı / KDV dahil hali", kisaAd: "Zamlı / KDV'li", hesapla: (a, b) => { const z = (a * b) / 100; return S(tutar(a + z), `Zam / KDV: ${tutar(z)}`); } },
-  { ad: "Çıkmış hali", kisaAd: "Çıkmış hali", hesapla: (a, b) => { const c = (a * b) / 100; return S(tutar(a - c), `Çıkan: ${tutar(c)}`); } },
-  { ad: "İndirimli hali", kisaAd: "İndirimli", hesapla: (a, b) => { const i = (a * b) / 100; return S(tutar(a - i), `İndirim: ${tutar(i)}`); } },
-  { ad: "İskontosu", kisaAd: "İskontosu", hesapla: (a, b) => { const i = (a * b) / 100; return S(tutar(i), `İskontolu hali: ${tutar(a - i)}`); } },
+  { ad: "%'si ne kadar", kisaAd: "%'si", formul: "=A2*B2", hesapla: (a, b) => S(tutar((a * b) / 100)) },
+  { ad: "Kârlı hali", kisaAd: "Kârlı hali", formul: "=A2*(1+B2)", hesapla: (a, b) => { const k = (a * b) / 100; return S(tutar(a + k), `Kâr: ${tutar(k)}`); } },
+  { ad: "Zamlı / KDV dahil hali", kisaAd: "Zamlı / KDV'li", formul: "=A2*(1+B2)", hesapla: (a, b) => { const z = (a * b) / 100; return S(tutar(a + z), `Zam / KDV: ${tutar(z)}`); } },
+  { ad: "Çıkmış hali", kisaAd: "Çıkmış hali", formul: "=A2*(1-B2)", hesapla: (a, b) => { const c = (a * b) / 100; return S(tutar(a - c), `Çıkan: ${tutar(c)}`); } },
+  { ad: "İndirimli hali", kisaAd: "İndirimli", formul: "=A2*(1-B2)", hesapla: (a, b) => { const i = (a * b) / 100; return S(tutar(a - i), `İndirim: ${tutar(i)}`); } },
+  { ad: "İskontosu", kisaAd: "İskontosu", formul: "=A2*B2", hesapla: (a, b) => { const i = (a * b) / 100; return S(tutar(i), `İskontolu hali: ${tutar(a - i)}`); } },
   {
-    ad: "İçinden çıkar (KDV hariç)", kisaAd: "KDV hariç",
+    ad: "İçinden çıkar (KDV hariç)", kisaAd: "KDV hariç", formul: "=A2/(1+B2)",
     hesapla: (a, b) => {
       const bolen = 1 + b / 100;
       if (bolen === 0) return hataSonuc("%-100 ile içinden çıkarılamaz");
@@ -136,7 +137,7 @@ export const YUZDE_ISLEMLERI = [
     },
   },
   {
-    ad: "İçindeki % tutarı (KDV'si)", kisaAd: "İçindeki KDV",
+    ad: "İçindeki % tutarı (KDV'si)", kisaAd: "İçindeki KDV", formul: "=A2*B2/(1+B2)",
     hesapla: (a, b) => {
       const bolen = 1 + b / 100;
       if (bolen === 0) return hataSonuc("%-100 ile hesaplanamaz");
@@ -145,7 +146,7 @@ export const YUZDE_ISLEMLERI = [
     },
   },
   {
-    ad: "İndirimden önceki hali", kisaAd: "İndirimden önce",
+    ad: "İndirimden önceki hali", kisaAd: "İndirimden önce", formul: "=A2/(1-B2)",
     hesapla: (a, b) => {
       const bolen = 1 - b / 100;
       if (bolen === 0) return hataSonuc("%100 indirimde eski fiyat bulunamaz");
@@ -154,30 +155,35 @@ export const YUZDE_ISLEMLERI = [
     },
   },
   {
-    ad: "Hangi sayının %'si", kisaAd: "Hangi sayının",
+    ad: "Hangi sayının %'si", kisaAd: "Hangi sayının", formul: "=A2/B2",
     hesapla: (a, b) => (b === 0 ? hataSonuc("Yüzde 0 olunca bulunamaz") : S(tutar((a * 100) / b))),
   },
-];
+].map((i) => ({ ...i, formulNotu: "A2: rakam · B2: %20 şeklinde yaz", bYuzde: true }));
 
 // ---------- 2. sekme: a = sol, b = sağ ----------
 
 export const KARSILASTIRMA_SORULARI = [
-  { ad: "Sol, sağın yüzde kaçı", kisaAd: "Sol, sağın %?", hesapla: (a, b) => oran(b, "Sağ", () => S(yuzde((a / b) * 100))) },
-  { ad: "Sol, sağdan % kaç fazla", kisaAd: "Sol % fazla?", hesapla: (a, b) => oran(b, "Sağ", () => yonlu(((a - b) / b) * 100, "Sol sağdan", "fazla", "eksik")) },
-  { ad: "Sol, sağdan % kaç eksik", kisaAd: "Sol % eksik?", hesapla: (a, b) => oran(b, "Sağ", () => yonlu(((b - a) / b) * 100, "Sol sağdan", "eksik", "fazla")) },
-  { ad: "Sağ, solun yüzde kaçı", kisaAd: "Sağ, solun %?", hesapla: (a, b) => oran(a, "Sol", () => S(yuzde((b / a) * 100))) },
-  { ad: "Sağ, soldan % kaç fazla", kisaAd: "Sağ % fazla?", hesapla: (a, b) => oran(a, "Sol", () => yonlu(((b - a) / a) * 100, "Sağ soldan", "fazla", "eksik")) },
-  { ad: "Sağ, soldan % kaç eksik", kisaAd: "Sağ % eksik?", hesapla: (a, b) => oran(a, "Sol", () => yonlu(((a - b) / a) * 100, "Sağ soldan", "eksik", "fazla")) },
+  { ad: "Sol, sağın yüzde kaçı", kisaAd: "Sol, sağın %?", formul: "=A2/B2", hesapla: (a, b) => oran(b, "Sağ", () => S(yuzde((a / b) * 100))) },
+  { ad: "Sol, sağdan % kaç fazla", kisaAd: "Sol % fazla?", formul: "=A2/B2-1", hesapla: (a, b) => oran(b, "Sağ", () => yonlu(((a - b) / b) * 100, "Sol sağdan", "fazla", "eksik")) },
+  { ad: "Sol, sağdan % kaç eksik", kisaAd: "Sol % eksik?", formul: "=1-A2/B2", hesapla: (a, b) => oran(b, "Sağ", () => yonlu(((b - a) / b) * 100, "Sol sağdan", "eksik", "fazla")) },
+  { ad: "Sağ, solun yüzde kaçı", kisaAd: "Sağ, solun %?", formul: "=B2/A2", hesapla: (a, b) => oran(a, "Sol", () => S(yuzde((b / a) * 100))) },
+  { ad: "Sağ, soldan % kaç fazla", kisaAd: "Sağ % fazla?", formul: "=B2/A2-1", hesapla: (a, b) => oran(a, "Sol", () => yonlu(((b - a) / a) * 100, "Sağ soldan", "fazla", "eksik")) },
+  { ad: "Sağ, soldan % kaç eksik", kisaAd: "Sağ % eksik?", formul: "=1-B2/A2", hesapla: (a, b) => oran(a, "Sol", () => yonlu(((a - b) / a) * 100, "Sağ soldan", "eksik", "fazla")) },
   {
-    ad: "Değişim (eski sol → yeni sağ)", kisaAd: "Değişim",
+    ad: "Değişim (eski sol → yeni sağ)", kisaAd: "Değişim", formul: "=B2/A2-1",
     hesapla: (a, b) => oran(a, "Sol", () => {
       const d = ((b - a) / a) * 100;
       const yon = yuzde(Math.abs(d)) === "%0" ? "Değişim yok" : d > 0 ? `${yuzde(d)} artış` : `${yuzde(-d)} azalış`;
       return S(yuzde(d), yon);
     }),
   },
-  { ad: "Aradaki fark (sol − sağ)", kisaAd: "Fark", hesapla: (a, b) => S(tutar(a - b)) },
-];
+  { ad: "Aradaki fark (sol − sağ)", kisaAd: "Fark", formul: "=A2-B2", hesapla: (a, b) => S(tutar(a - b)), yuzdeSonuc: false },
+].map((i) => ({
+  yuzdeSonuc: true,
+  ...i,
+  formulNotu: i.yuzdeSonuc === false ? "A2: sol · B2: sağ" : "A2: sol · B2: sağ · Sonuç hücresini Yüzde biçimine al",
+  bYuzde: false,
+}));
 
 /** Kutulardaki ham metinlerden sonucu verir; kutulardan biri boşsa boş sonuç. Hiçbir durumda hata fırlatmaz. */
 export function hesapla(islem, ham1, ham2) {
@@ -189,4 +195,22 @@ export function hesapla(islem, ham1, ham2) {
   } catch {
     return hataSonuc("Sayı çok büyük");
   }
+}
+
+// ---------- Excel formülü ----------
+
+/** "1250," → "1250", ",5" → "0,5"; eksi sayı parantez içinde: "(-300)". */
+function hucre(ham, yuzde) {
+  let t = ham.trim().replace(/,$/, "");
+  const eksi = t.startsWith("-");
+  if (eksi) t = t.slice(1);
+  if (t.startsWith(",")) t = "0" + t;
+  if (yuzde) t += "%";
+  return eksi ? `(-${t})` : t;
+}
+
+/** Formülün o satırdaki değerlerle hali (Türkçe Excel: binlik nokta yok, ondalık virgül). 1.250 ve %20 → "=1250*20%". Boşsa null. */
+export function rakamlarla(islem, ham1, ham2) {
+  if (sayiOku(ham1) === null || sayiOku(ham2) === null) return null;
+  return islem.formul.replaceAll("A2", hucre(ham1, false)).replaceAll("B2", hucre(ham2, islem.bYuzde));
 }

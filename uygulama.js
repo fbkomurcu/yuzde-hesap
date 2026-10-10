@@ -1,5 +1,5 @@
 // Yüzde Hesap — ekran. Hesaplar hesaplar.js'tedir.
-import { YUZDE_ISLEMLERI, KARSILASTIRMA_SORULARI, BOS, hesapla, girisDuzelt, esle, panoMetni } from "./hesaplar.js";
+import { YUZDE_ISLEMLERI, KARSILASTIRMA_SORULARI, BOS, hesapla, girisDuzelt, esle, panoMetni, rakamlarla } from "./hesaplar.js";
 
 const SEKMELER = {
   yuzde: { ustSatir: "Rakam · Yüzde · İşlem → Sonuç", etiket1: "Rakam", etiket2: "Yüzde", islemEtiketi: "İşlem", yuzdeKutusu: true, islemler: YUZDE_ISLEMLERI },
@@ -10,7 +10,7 @@ const SEKMELER = {
 
 const ANAHTAR = "yuzde-hesap-v1";
 let sonId = 0;
-const yeniSatir = (islem = 0) => ({ id: ++sonId, ham1: "", ham2: "", islem });
+const yeniSatir = (islem = 0) => ({ id: ++sonId, ham1: "", ham2: "", islem, formulAcik: false });
 
 function yukle() {
   try {
@@ -21,13 +21,14 @@ function yukle() {
           id: ++sonId,
           ham1: girisDuzelt("", String(s.ham1 ?? "")),
           ham2: girisDuzelt("", String(s.ham2 ?? "")),
+          formulAcik: s.formulAcik === true,
           islem: Number.isInteger(s.islem) && s.islem >= 0 && s.islem < SEKMELER[k].islemler.length ? s.islem : 0,
         }));
       }
-      return { secili: d.secili in SEKMELER ? d.secili : "yuzde", satirlar: d.satirlar };
+      return { secili: d.secili in SEKMELER ? d.secili : "yuzde", satirlar: d.satirlar, hepGoster: d.hepGoster === true };
     }
   } catch { /* saklama kapalı/bozuk: boş başla */ }
-  return { secili: "yuzde", satirlar: { yuzde: [yeniSatir()], karsilastir: [yeniSatir()] } };
+  return { secili: "yuzde", satirlar: { yuzde: [yeniSatir()], karsilastir: [yeniSatir()] }, hepGoster: false };
 }
 
 const durum = yukle();
@@ -53,15 +54,22 @@ function el(etiket, sinif, ozellik = {}) {
 function ciz() {
   const sekme = SEKMELER[durum.secili];
   document.querySelectorAll(".sekme").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.sekme === durum.secili)));
+  $("#hep-goster").setAttribute("aria-pressed", String(durum.hepGoster));
+  document.body.classList.toggle("formul-hep", durum.hepGoster);
   $("#ust-satir").textContent = sekme.ustSatir;
   satirlarKutusu.replaceChildren(...durum.satirlar[durum.secili].map((s) => satirKarti(sekme, s)));
 }
 
 function satirKarti(sekme, satir) {
-  const kart = el("div", "kart" + (sekme.yuzdeKutusu ? "" : " esit"));
+  const kart = el("div", "kart" + (sekme.yuzdeKutusu ? "" : " esit") + (satir.formulAcik ? " formul-acik" : ""));
   const sonuc = el("div", "sonuc");
+  const formul = el("div", "formul");
 
-  const yenile = () => sonucCiz(sonuc, hesapla(sekme.islemler[satir.islem], satir.ham1, satir.ham2));
+  const yenile = () => {
+    const islem = sekme.islemler[satir.islem];
+    sonucCiz(sonuc, hesapla(islem, satir.ham1, satir.ham2));
+    formulCiz(formul, islem, satir);
+  };
 
   kart.append(
     sayiKutusu("a", sekme.etiket1, false, satir, "ham1", "next", yenile),
@@ -69,6 +77,8 @@ function satirKarti(sekme, satir) {
     islemSecici(sekme, satir, yenile),
     sonuc,
     silDugmesi(satir),
+    formulDugmesi(kart, satir),
+    formul,
   );
   yenile();
   return kart;
@@ -170,12 +180,40 @@ function sonucCiz(kutu, s) {
   if (dolu) {
     deger.setAttribute("role", "button");
     deger.title = "Kopyalamak için dokun";
-    deger.addEventListener("click", () => kopyala(panoMetni(s.metin)));
+    deger.addEventListener("click", () => { const m = panoMetni(s.metin); kopyala(m, `Kopyalandı: ${m}`); });
   }
   const parcalar = [deger];
   if (s.not) parcalar.push(el("div", "not", { textContent: s.not }));
   if (s.uyari) parcalar.push(el("div", "uyari", { textContent: s.uyari }));
   kutu.replaceChildren(...parcalar);
+}
+
+// ---------- Excel formülü ----------
+
+function formulDugmesi(kart, satir) {
+  const b = el("button", "formul-dugme", { type: "button" });
+  const yaz = () => { b.textContent = satir.formulAcik ? "Excel formülü ▴" : "Excel formülü ▾"; b.setAttribute("aria-expanded", String(satir.formulAcik)); };
+  yaz();
+  b.addEventListener("click", () => {
+    satir.formulAcik = !satir.formulAcik;
+    kart.classList.toggle("formul-acik", satir.formulAcik);
+    yaz();
+    sakla();
+  });
+  return b;
+}
+
+function formulCiz(kutu, islem, satir) {
+  const r = rakamlarla(islem, satir.ham1, satir.ham2);
+  const kopya = el("button", "kopyala", { type: "button", textContent: "Kopyala" });
+  kopya.addEventListener("click", () => kopyala(islem.formul, "Formül kopyalandı"));
+  const metin = el("div", "formul-metin");
+  metin.append(
+    el("div", "formul-ana", { textContent: islem.formul }),
+    el("div", "formul-rakam" + (r ? "" : " bos"), { textContent: r ?? "Rakamları girince burada görünür" }),
+    el("div", "formul-not", { textContent: islem.formulNotu }),
+  );
+  kutu.replaceChildren(metin, kopya);
 }
 
 // ---------- Kopyalama ----------
@@ -189,7 +227,7 @@ function mesajGoster(metin) {
   mesajZamani = setTimeout(() => m.classList.remove("gorunur"), 1800);
 }
 
-async function kopyala(metin) {
+async function kopyala(metin, mesaj) {
   try {
     await navigator.clipboard.writeText(metin);
   } catch {
@@ -203,7 +241,7 @@ async function kopyala(metin) {
     try { document.execCommand("copy"); } catch { /* yok */ }
     t.remove();
   }
-  mesajGoster(`Kopyalandı: ${metin}`);
+  mesajGoster(mesaj);
 }
 
 // ---------- Düğmeler ----------
@@ -215,6 +253,13 @@ document.querySelectorAll(".sekme").forEach((b) =>
     sakla();
   }),
 );
+
+$("#hep-goster").addEventListener("click", () => {
+  durum.hepGoster = !durum.hepGoster;
+  ciz();
+  sakla();
+  mesajGoster(durum.hepGoster ? "Formüller hep gösteriliyor" : "Formüller gizlendi");
+});
 
 $("#temizle").addEventListener("click", () => {
   durum.satirlar[durum.secili] = [yeniSatir()];

@@ -59,6 +59,19 @@ button { font: inherit; cursor: pointer; }
 }
 .ust-cubuk { display: flex; align-items: center; justify-content: space-between; padding: 10px 8px 4px 16px; }
 .ust h1 { margin: 0; font-size: 22px; font-weight: 600; }
+.ust-dugmeler { display: flex; align-items: center; gap: 4px; }
+.fx {
+  width: 36px; height: 28px;
+  border: 1px solid rgba(255, 255, 255, .7);
+  border-radius: 6px;
+  background: none;
+  color: #fff;
+  font-weight: 700;
+  font-size: 16px;
+  font-family: Georgia, "Times New Roman", serif;
+  padding: 0;
+}
+.fx[aria-pressed="true"] { background: var(--hardal); border-color: var(--hardal); color: var(--yesil); }
 .temizle { background: none; border: 0; color: var(--hardal); font-weight: 600; padding: 10px 10px; border-radius: 8px; }
 .temizle:active { background: rgba(255, 255, 255, .1); }
 
@@ -102,7 +115,7 @@ main {
   display: grid;
   /* Dik: 3 kutu + X tek satırda, sonuç altında */
   grid-template-columns: minmax(0, 1fr) minmax(0, .8fr) minmax(0, 1.25fr) 36px;
-  grid-template-areas: "a b islem sil" "sonuc sonuc sonuc sonuc";
+  grid-template-areas: "a b islem sil" "sonuc sonuc sonuc sonuc" "fd fd fd fd" "formul formul formul formul";
   column-gap: 6px;
   align-items: center;
 }
@@ -112,7 +125,7 @@ main {
 @media (orientation: landscape) {
   .kart, .kart.esit {
     grid-template-columns: minmax(0, 1fr) minmax(0, .8fr) minmax(0, 1.25fr) minmax(0, 1.6fr) 36px;
-    grid-template-areas: "a b islem sonuc sil";
+    grid-template-areas: "a b islem sonuc sil" "fd fd fd fd fd" "formul formul formul formul formul";
   }
   .kart.esit { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.25fr) minmax(0, 1.6fr) 36px; }
   .sonuc .deger { font-size: 24px; }
@@ -226,6 +239,51 @@ main {
 .sonuc .not { color: var(--soluk); }
 .sonuc .uyari { color: var(--uyari); font-weight: 600; }
 @media (orientation: landscape) { .sonuc { padding-top: 0; } }
+
+/* ---- Excel formülü ---- */
+.formul-dugme {
+  grid-area: fd;
+  justify-self: end;
+  margin-right: 4px;
+  background: none;
+  border: 0;
+  border-radius: 999px;
+  padding: 6px 10px;
+  color: var(--ikincil);
+  font-size: 14px;
+  font-weight: 500;
+}
+.formul-dugme:active { background: rgba(127, 127, 127, .15); }
+.formul {
+  grid-area: formul;
+  display: none;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 8px 0 0;
+  padding: 8px 6px 8px 12px;
+  border: 1px solid rgba(127, 127, 127, .35);
+  border-radius: 8px;
+  background: var(--zemin);
+  min-width: 0;
+}
+.kart.formul-acik .formul, .formul-hep .formul { display: flex; }
+.formul-hep .formul-dugme { display: none; }
+.formul-metin { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.formul-ana, .formul-rakam { font-family: ui-monospace, Menlo, "SF Mono", Consolas, "Roboto Mono", monospace; }
+.formul-ana { font-size: 20px; font-weight: 700; color: var(--sonuc); }
+.formul-rakam { font-size: 15px; color: var(--soluk); }
+.formul-rakam.bos { font-family: inherit; opacity: .6; }
+.formul-not { font-size: 12px; color: var(--soluk); margin-top: 2px; }
+.kopyala {
+  flex: none;
+  border: 1px solid var(--hardal);
+  border-radius: 999px;
+  background: none;
+  color: var(--sonuc);
+  font-weight: 600;
+  padding: 8px 14px;
+}
+.kopyala:active { background: rgba(212, 166, 42, .12); }
 
 .ekle {
   width: 100%;
