@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Yüzde Hesap</title>
+  <meta name="description" content="Hesap makinesi gibi hızlı yüzde hesabı.">
+  <meta name="theme-color" content="#1E4D2B">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Yüzde Hesap">
+  <meta name="format-detection" content="telephone=no">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="ikon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="ikon-180.png">
+  <link rel="stylesheet" href="stil.css">
+  <script type="module" src="uygulama.js"></script>
+</head>
+<body>
+  <header class="ust">
+    <div class="ust-cubuk">
+      <h1>Yüzde Hesap</h1>
+      <button type="button" id="temizle" class="temizle">Temizle</button>
+    </div>
+    <nav class="sekmeler" role="tablist">
+      <button type="button" role="tab" class="sekme" data-sekme="yuzde">Yüzde Hesapla</button>
+      <button type="button" role="tab" class="sekme" data-sekme="karsilastir">Karşılaştır</button>
+    </nav>
+  </header>
+
+  <main>
+    <p class="ust-satir" id="ust-satir"></p>
+    <div id="satirlar"></div>
+    <button type="button" id="ekle" class="ekle">+&nbsp;&nbsp;Yeni satır ekle</button>
+    <p class="imza">Bu uygulama Burak Kömürcü tarafından yapılmıştır</p>
+  </main>
+
+  <div id="mesaj" class="mesaj" role="status" aria-live="polite"></div>
+</body>
+</html>
