@@ -1,5 +1,5 @@
 // Yüzde Hesap — ekran. Hesaplar hesaplar.js'tedir.
-import { YUZDE_ISLEMLERI, KARSILASTIRMA_SORULARI, BOS, hesapla, girisDuzelt, esle, panoMetni, rakamlarla } from "./hesaplar.js";
+import { YUZDE_ISLEMLERI, KARSILASTIRMA_SORULARI, BOS, hesapla, hesapMakinesi, girisDuzelt, esle, panoMetni, rakamlarla } from "./hesaplar.js";
 
 const SEKMELER = {
   yuzde: { ustSatir: "Rakam · Yüzde · İşlem → Sonuç", etiket1: "Rakam", etiket2: "Yüzde", islemEtiketi: "İşlem", yuzdeKutusu: true, islemler: YUZDE_ISLEMLERI },
@@ -10,7 +10,7 @@ const SEKMELER = {
 
 const ANAHTAR = "yuzde-hesap-v1";
 let sonId = 0;
-const yeniSatir = (islem = 0) => ({ id: ++sonId, ham1: "", ham2: "", islem, formulAcik: false });
+const yeniSatir = (islem = 0) => ({ id: ++sonId, ham1: "", ham2: "", islem, formulAcik: false, tusAcik: false });
 
 function yukle() {
   try {
@@ -22,13 +22,14 @@ function yukle() {
           ham1: girisDuzelt("", String(s.ham1 ?? "")),
           ham2: girisDuzelt("", String(s.ham2 ?? "")),
           formulAcik: s.formulAcik === true,
+          tusAcik: s.tusAcik === true,
           islem: Number.isInteger(s.islem) && s.islem >= 0 && s.islem < SEKMELER[k].islemler.length ? s.islem : 0,
         }));
       }
-      return { secili: d.secili in SEKMELER ? d.secili : "yuzde", satirlar: d.satirlar, hepGoster: d.hepGoster === true };
+      return { secili: d.secili in SEKMELER ? d.secili : "yuzde", satirlar: d.satirlar, hepGoster: d.hepGoster === true, tusHep: d.tusHep === true };
     }
   } catch { /* saklama kapalı/bozuk: boş başla */ }
-  return { secili: "yuzde", satirlar: { yuzde: [yeniSatir()], karsilastir: [yeniSatir()] }, hepGoster: false };
+  return { secili: "yuzde", satirlar: { yuzde: [yeniSatir()], karsilastir: [yeniSatir()] }, hepGoster: false, tusHep: false };
 }
 
 const durum = yukle();
@@ -56,19 +57,23 @@ function ciz() {
   document.querySelectorAll(".sekme").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.sekme === durum.secili)));
   $("#hep-goster").setAttribute("aria-pressed", String(durum.hepGoster));
   document.body.classList.toggle("formul-hep", durum.hepGoster);
+  $("#tus-hep").setAttribute("aria-pressed", String(durum.tusHep));
+  document.body.classList.toggle("tus-hep", durum.tusHep);
   $("#ust-satir").textContent = sekme.ustSatir;
   satirlarKutusu.replaceChildren(...durum.satirlar[durum.secili].map((s) => satirKarti(sekme, s)));
 }
 
 function satirKarti(sekme, satir) {
-  const kart = el("div", "kart" + (sekme.yuzdeKutusu ? "" : " esit") + (satir.formulAcik ? " formul-acik" : ""));
+  const kart = el("div", "kart" + (sekme.yuzdeKutusu ? "" : " esit") + (satir.formulAcik ? " formul-acik" : "") + (satir.tusAcik ? " tus-acik" : ""));
   const sonuc = el("div", "sonuc");
   const formul = el("div", "formul");
+  const tus = el("div", "tus-kutusu");
 
   const yenile = () => {
     const islem = sekme.islemler[satir.islem];
     sonucCiz(sonuc, hesapla(islem, satir.ham1, satir.ham2));
     formulCiz(formul, islem, satir);
+    tusCiz(tus, hesapMakinesi(islem, satir.ham1, satir.ham2));
   };
 
   kart.append(
@@ -77,8 +82,9 @@ function satirKarti(sekme, satir) {
     islemSecici(sekme, satir, yenile),
     sonuc,
     silDugmesi(satir),
-    formulDugmesi(kart, satir),
+    acKapaDugmeleri(kart, satir),
     formul,
+    tus,
   );
   yenile();
   return kart;
@@ -188,15 +194,21 @@ function sonucCiz(kutu, s) {
   kutu.replaceChildren(...parcalar);
 }
 
-// ---------- Excel formülü ----------
+// ---------- Excel formülü / Hesap makinesi aç-kapa ----------
 
-function formulDugmesi(kart, satir) {
-  const b = el("button", "formul-dugme", { type: "button" });
-  const yaz = () => { b.textContent = satir.formulAcik ? "Excel formülü ▴" : "Excel formülü ▾"; b.setAttribute("aria-expanded", String(satir.formulAcik)); };
+function acKapaDugmeleri(kart, satir) {
+  const kutu = el("div", "ac-kapa");
+  kutu.append(acKapaDugmesi(kart, satir, "Excel formülü", "formulAcik", "formul-acik"), acKapaDugmesi(kart, satir, "Hesap makinesi", "tusAcik", "tus-acik"));
+  return kutu;
+}
+
+function acKapaDugmesi(kart, satir, ad, alan, sinif) {
+  const b = el("button", "dugme-" + sinif, { type: "button" });
+  const yaz = () => { b.textContent = satir[alan] ? `${ad} ▴` : `${ad} ▾`; b.setAttribute("aria-expanded", String(satir[alan])); };
   yaz();
   b.addEventListener("click", () => {
-    satir.formulAcik = !satir.formulAcik;
-    kart.classList.toggle("formul-acik", satir.formulAcik);
+    satir[alan] = !satir[alan];
+    kart.classList.toggle(sinif, satir[alan]);
     yaz();
     sakla();
   });
@@ -214,6 +226,32 @@ function formulCiz(kutu, islem, satir) {
     el("div", "formul-not", { textContent: islem.formulNotu }),
   );
   kutu.replaceChildren(metin, kopya);
+}
+
+// ---------- Hesap makinesi tuş sırası ----------
+
+/** Her adım ayrı satırda: tuşlar küçük kutucuklar, sonunda ara sonuç; altında açıklama ve (varsa) Casio kısa yolu. */
+function tusCiz(kutu, hm) {
+  if (!hm) {
+    kutu.replaceChildren(el("div", "tus-bos", { textContent: "Rakamları girince burada görünür" }));
+    return;
+  }
+  const cokAdim = hm.adimlar.length > 1;
+  const parcalar = hm.adimlar.map((adim, i) => {
+    const satir = el("div", "tus-adim");
+    if (cokAdim) satir.append(el("span", "tus-no", { textContent: `${i + 1}.` }));
+    for (const t of adim.tuslar) {
+      satir.append(el("span", "tus" + (t.rakam ? "" : t.metin === "=" ? " esittir" : " islem-tusu"), { textContent: t.metin }));
+    }
+    satir.append(el("span", "ara-sonuc", { textContent: `→ ${adim.araSonuc}` }));
+    return satir;
+  });
+  parcalar.push(el("div", "tus-aciklama", { textContent: hm.aciklama }));
+  if (hm.casio) {
+    const kisa = hm.casio.map((t) => `[${t.metin}]`).join(" ");
+    parcalar.push(el("div", "tus-casio", { textContent: `Casio'da % tuşuyla: ${kisa} (her hesap makinesinde aynı çalışmayabilir)` }));
+  }
+  kutu.replaceChildren(...parcalar);
 }
 
 // ---------- Kopyalama ----------
@@ -259,6 +297,13 @@ $("#hep-goster").addEventListener("click", () => {
   ciz();
   sakla();
   mesajGoster(durum.hepGoster ? "Formüller hep gösteriliyor" : "Formüller gizlendi");
+});
+
+$("#tus-hep").addEventListener("click", () => {
+  durum.tusHep = !durum.tusHep;
+  ciz();
+  sakla();
+  mesajGoster(durum.tusHep ? "Hesap makinesi adımları hep gösteriliyor" : "Hesap makinesi adımları gizlendi");
 });
 
 $("#temizle").addEventListener("click", () => {

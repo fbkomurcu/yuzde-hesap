@@ -115,7 +115,7 @@ main {
   display: grid;
   /* Dik: 3 kutu + X tek satırda, sonuç altında */
   grid-template-columns: minmax(0, 1fr) minmax(0, .8fr) minmax(0, 1.25fr) 36px;
-  grid-template-areas: "a b islem sil" "sonuc sonuc sonuc sonuc" "fd fd fd fd" "formul formul formul formul";
+  grid-template-areas: "a b islem sil" "sonuc sonuc sonuc sonuc" "fd fd fd fd" "formul formul formul formul" "tus tus tus tus";
   column-gap: 6px;
   align-items: center;
 }
@@ -125,7 +125,7 @@ main {
 @media (orientation: landscape) {
   .kart, .kart.esit {
     grid-template-columns: minmax(0, 1fr) minmax(0, .8fr) minmax(0, 1.25fr) minmax(0, 1.6fr) 36px;
-    grid-template-areas: "a b islem sonuc sil" "fd fd fd fd fd" "formul formul formul formul formul";
+    grid-template-areas: "a b islem sonuc sil" "fd fd fd fd fd" "formul formul formul formul formul" "tus tus tus tus tus";
   }
   .kart.esit { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.25fr) minmax(0, 1.6fr) 36px; }
   .sonuc .deger { font-size: 24px; }
@@ -241,10 +241,8 @@ main {
 @media (orientation: landscape) { .sonuc { padding-top: 0; } }
 
 /* ---- Excel formülü ---- */
-.formul-dugme {
-  grid-area: fd;
-  justify-self: end;
-  margin-right: 4px;
+.ac-kapa { grid-area: fd; justify-self: end; display: flex; margin-right: 4px; }
+.ac-kapa button {
   background: none;
   border: 0;
   border-radius: 999px;
@@ -253,7 +251,7 @@ main {
   font-size: 14px;
   font-weight: 500;
 }
-.formul-dugme:active { background: rgba(127, 127, 127, .15); }
+.ac-kapa button:active { background: rgba(127, 127, 127, .15); }
 .formul {
   grid-area: formul;
   display: none;
@@ -267,7 +265,7 @@ main {
   min-width: 0;
 }
 .kart.formul-acik .formul, .formul-hep .formul { display: flex; }
-.formul-hep .formul-dugme { display: none; }
+.formul-hep .dugme-formul-acik, .tus-hep .dugme-tus-acik { display: none; }
 .formul-metin { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .formul-ana, .formul-rakam { font-family: ui-monospace, Menlo, "SF Mono", Consolas, "Roboto Mono", monospace; }
 .formul-ana { font-size: 20px; font-weight: 700; color: var(--sonuc); }
@@ -284,6 +282,44 @@ main {
   padding: 8px 14px;
 }
 .kopyala:active { background: rgba(212, 166, 42, .12); }
+
+/* ---- Hesap makinesi tuş sırası ---- */
+.tus-anahtar { font-family: inherit; font-size: 15px; }
+.tus-kutusu {
+  grid-area: tus;
+  display: none;
+  margin: 4px 8px 0 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(127, 127, 127, .35);
+  border-radius: 8px;
+  background: var(--zemin);
+  min-width: 0;
+}
+.kart.tus-acik .tus-kutusu, .tus-hep .tus-kutusu { display: block; }
+.tus-adim { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-bottom: 6px; }
+.tus-no { font-weight: 700; color: var(--soluk); margin-right: 2px; }
+.tus {
+  min-width: 30px;
+  height: 28px;
+  padding: 0 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(127, 127, 127, .35);
+  border-radius: 6px;
+  background: var(--kart);
+  color: var(--yazi);
+  font-size: 16px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.tus.islem-tusu { background: rgba(212, 166, 42, .25); font-weight: 700; }
+.tus.esittir { background: var(--yesil); color: #fff; font-weight: 700; }
+.ara-sonuc { margin-left: 4px; font-size: 17px; font-weight: 700; color: var(--sonuc); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tus-aciklama { font-size: 14px; color: var(--soluk); }
+.tus-casio { font-size: 12px; color: var(--soluk); opacity: .75; margin-top: 4px; }
+.tus-bos { font-size: 15px; color: var(--soluk); opacity: .6; }
 
 .ekle {
   width: 100%;
