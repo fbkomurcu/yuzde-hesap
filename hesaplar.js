@@ -176,32 +176,21 @@ export const tusSayisi = (hm) =>
   hm.adimlar.reduce((t, a) => t + a.tuslar.reduce((u, k) => u + (k.rakam ? k.metin.replaceAll(".", "").length : 1), 0), 0);
 
 /**
- * Tuş sırası kurar ve her adımın ara sonucunu basit hesap makinesi gibi hesaplar: soldan sağa, işlem önceliği yok.
- * Rakamla başlayan adım yeni hesaptır; işlemle başlayan adım ekrandaki sonuçtan devam eder.
+ * Tuş sırası kurar; her adımın ara sonucunu tuşları gerçek hesap makinesine (HesapMotoru) tek tek basarak bulur:
+ * soldan sağa, işlem önceliği yok. Rakamla başlayan adım yeni hesaptır; işlemle başlayan adım ekrandaki sonuçtan devam eder.
  */
 class TusSirasi {
   adimlar = [];
-  sonuc = 0;
+  motor = new HesapMotoru();
+  get sonuc() { return this.motor.deger; }
 
   /** parcalar: rakam tuşu ya da işlem karakteri (+ − × ÷); sona [=] eklenir. */
   adim(...parcalar) {
-    const tuslar = [];
-    let ekran = this.sonuc;
-    let bekleyen = null;
-    for (const p of parcalar) {
-      if (typeof p === "string") {
-        tuslar.push(islemTusu(p));
-        bekleyen = p;
-        continue;
-      }
-      tuslar.push(p);
-      const x = tusDegeri(p.metin);
-      ekran = bekleyen === null ? x : bekleyen === "+" ? ekran + x : bekleyen === "−" ? ekran - x : bekleyen === "×" ? ekran * x : ekran / x;
-      bekleyen = null;
-    }
-    tuslar.push(islemTusu("="));
-    this.sonuc = ekran;
-    this.adimlar.push({ tuslar, araSonuc: sade(ekran) });
+    const tuslar = [...parcalar.map((p) => (typeof p === "string" ? islemTusu(p) : p)), islemTusu("=")];
+    for (const t of tuslar) for (const b of basimlar(t)) this.motor.bas(b);
+    // Sıfıra bölme vb.: hesap yapılamıyor (hesapMakinesi null döner).
+    if (this.motor.hata) throw new RangeError("Hesap makinesinde hata");
+    this.adimlar.push({ tuslar, araSonuc: sade(this.motor.deger) });
     return this;
   }
 
@@ -216,6 +205,217 @@ const sira = () => new TusSirasi();
 function carpimla(a, b, carpan, aciklama, casio) {
   const kisaYol = b.n >= 0n ? [r(a), islemTusu(casio), r(b), islemTusu("%")] : null;
   return sira().adim(r(a), "×", cr(carpan)).bitir(aciklama, kisaYol);
+}
+
+// ---------- Hesap makinesi paneli (Android: HesapMotoru.kt) ----------
+// Masa tipi basit hesap makinesi: tuşlar soldan sağa işlenir, işlem önceliği yoktur (2 + 3 × 4 = 20).
+// Paneldeki hesap makinesi de satırlardaki "hesap makinesi adımları" da bunu kullanır.
+// Tuşlar: "0".."9", ",", "+", "−", "×", "÷", "=", "C", "⌫", "±".
+
+export const GECMIS_SINIRI = 20;
+const EN_COK_HANE = 25;
+const TASMA = 1e18;
+
+/** Ekrandaki sayı: binlik noktalı, en çok 10 ondalık ve toplam 15 hane; sondaki sıfırlar atılır. 1/3 → "0,3333333333". */
+export function sayiMetni(d) {
+  const a = Math.abs(d);
+  const tamHane = String(Math.trunc(a)).length;
+  const ondalik = Math.min(10, Math.max(0, 15 - tamHane));
+  const duz = a !== 0 && a < 1e-6 ? a.toFixed(20) : String(a);
+  let { tam, kesir } = yuvarla(duz, ondalik);
+  kesir = kesir.replace(/0+$/, "");
+  const sifir = /^0*$/.test(tam) && kesir === "";
+  return (d < 0 && !sifir ? EKSI : "") + grupla(tam.replace(/^0+(?=\d)/, "")) + (kesir ? "," + kesir : "");
+}
+
+/** Sayının kutuya yazılabilir ham hali: -1250.5 → "-1250,5". */
+export const hamYaz = (d) => panoMetni(sayiMetni(d)).replaceAll(".", "");
+
+const hamDeger = (ham) => Number(ham.replace(",", ".").replace(/\.$/, ""));
+
+/** Yazılmakta olan ham sayıyı gösterir: "-1250,70" → "−1.250,70", "0," → "0,". */
+function hamGoster(ham) {
+  const eksi = ham.startsWith("-");
+  const t = eksi ? ham.slice(1) : ham;
+  const v = t.indexOf(",");
+  const tam = v < 0 ? t : t.slice(0, v);
+  const kalan = v < 0 ? "" : t.slice(v);
+  return (eksi ? EKSI : "") + grupla(tam) + kalan;
+}
+
+/** Bir rakam tuşunun tek tek basımları: "5.000" → 5 0 0 0, "0,70" → 0 , 7 0, "−12" → 1 2 ±. İşlem tuşu olduğu gibi. */
+export function basimlar(tus) {
+  if (!tus.rakam) return [tus.metin];
+  const eksi = tus.metin.startsWith(EKSI);
+  const rakamlar = [...(eksi ? tus.metin.slice(1) : tus.metin)].filter((c) => c !== ".");
+  return eksi ? [...rakamlar, "±"] : rakamlar;
+}
+
+/** "▶ Hesap makinesinde göster"in oynattığı basımlar, adım adım; ilk adım [C] ile başlar. Testler de bunu çalıştırır. */
+export const oynatma = (hm) => hm.adimlar.map((adim, i) => [...(i === 0 ? ["C"] : []), ...adim.tuslar.flatMap(basimlar)]);
+
+export class HesapMotoru {
+  giris = null; // yazılmakta olan sayı, ham ("-12,5"); null ise ekranda deger görünür
+  deger = 0;
+  birikim = null;
+  bekleyen = null;
+  sonIslem = null; // art arda "=" için: 100 + 10 = = → 120
+  sonSag = 0;
+  esittirSonrasi = false;
+  ifade = [];
+  hata = false;
+  gecmis = []; // en yenisi başta: { ifade, sonuc, deger }
+
+  get ifadeMetni() { return this.ifade.join(" "); }
+  get ekranMetni() { return this.hata ? "Hata" : this.giris !== null ? hamGoster(this.giris) : sayiMetni(this.deger); }
+  get ekrandaki() { return this.giris !== null ? hamDeger(this.giris) : this.deger; }
+
+  bas(tus) {
+    if (this.hata) {
+      this.temizle();
+      // Hata ekranında rakam/virgül yeni sayıyı başlatır; diğer tuşlar yalnızca temizler.
+      if (!/^[0-9,]$/.test(tus)) return;
+    }
+    if (tus === "C") this.temizle();
+    else if (tus === "⌫") this.#geriSil();
+    else if (tus === "±") this.#isaretDegistir();
+    else if (tus === "=") this.#esittir();
+    else if ("+−×÷".includes(tus) && tus.length === 1) this.#islem(tus);
+    else if (tus === ",") this.#virgul();
+    else if (/^[0-9]$/.test(tus)) this.#rakam(tus);
+    else throw new Error("Bilinmeyen tuş: " + tus);
+  }
+
+  /** Dışarıdan sayı getirir (satır sonucu, geçmiş): sonuç gibi ekrana yazılır, üzerine işlem yapılabilir. */
+  aktar(sayi, aciklama = null) {
+    this.temizle();
+    this.deger = sayi;
+    this.esittirSonrasi = true;
+    if (aciklama) this.ifade.push(aciklama);
+  }
+
+  temizle() {
+    this.giris = null;
+    this.deger = 0;
+    this.birikim = null;
+    this.bekleyen = null;
+    this.sonIslem = null;
+    this.esittirSonrasi = false;
+    this.ifade = [];
+    this.hata = false;
+  }
+
+  #yeniGirisGerekirse() {
+    if (this.giris === null && this.esittirSonrasi) {
+      this.ifade = [];
+      this.esittirSonrasi = false;
+      this.sonIslem = null;
+    }
+    return this.giris ?? "";
+  }
+
+  #rakam(c) {
+    const g = this.#yeniGirisGerekirse();
+    if (g.replace(/\D/g, "").length >= EN_COK_HANE) return;
+    this.giris = g === "0" ? c : g === "-0" ? "-" + c : g + c;
+  }
+
+  #virgul() {
+    const g = this.#yeniGirisGerekirse();
+    if (g.includes(",")) return;
+    this.giris = g === "" || g === "-" ? g + "0," : g + ",";
+  }
+
+  #geriSil() {
+    if (this.giris === null) return;
+    const kalan = this.giris.slice(0, -1);
+    this.giris = kalan === "" || kalan === "-" ? "0" : kalan;
+  }
+
+  #isaretDegistir() {
+    if (this.giris !== null) {
+      this.giris = this.giris.startsWith("-") ? this.giris.slice(1) : "-" + this.giris;
+      return;
+    }
+    if (this.esittirSonrasi) {
+      this.ifade = [];
+      this.esittirSonrasi = false;
+    }
+    this.giris = hamYaz(-this.deger);
+  }
+
+  #islem(op) {
+    if (this.giris !== null) {
+      const x = hamDeger(this.giris);
+      this.ifade.push(hamGoster(this.giris));
+      if (this.birikim !== null && this.bekleyen !== null) {
+        const r = this.#uygula(this.birikim, this.bekleyen, x);
+        if (r === null) return;
+        this.birikim = r;
+      } else this.birikim = x;
+    } else if (this.bekleyen !== null) {
+      // İşlem tuşunu değiştirmek: 5 × → 5 ÷
+      this.ifade[this.ifade.length - 1] = op;
+      this.bekleyen = op;
+      return;
+    } else {
+      this.ifade = [sayiMetni(this.deger)];
+      this.birikim = this.deger;
+    }
+    this.ifade.push(op);
+    this.bekleyen = op;
+    this.giris = null;
+    this.deger = this.birikim;
+    this.esittirSonrasi = false;
+  }
+
+  #esittir() {
+    if (this.bekleyen !== null && this.birikim !== null) {
+      // "5 × =" gibi sağ taraf yazılmadıysa ekrandaki değer kullanılır (5 × 5).
+      const x = this.giris !== null ? hamDeger(this.giris) : this.deger;
+      this.ifade.push(this.giris !== null ? hamGoster(this.giris) : sayiMetni(x));
+      const op = this.bekleyen;
+      const r = this.#uygula(this.birikim, op, x);
+      if (r === null) return;
+      this.sonIslem = op;
+      this.sonSag = x;
+      this.#bitir(r);
+    } else if (this.esittirSonrasi && this.sonIslem !== null && this.giris === null) {
+      const sol = this.deger;
+      const op = this.sonIslem;
+      this.ifade = [sayiMetni(sol), op, sayiMetni(this.sonSag)];
+      const r = this.#uygula(sol, op, this.sonSag);
+      if (r !== null) this.#bitir(r);
+    } else {
+      const x = this.ekrandaki;
+      this.ifade = [sayiMetni(x), "="];
+      this.giris = null;
+      this.deger = x;
+      this.esittirSonrasi = true;
+    }
+  }
+
+  #bitir(sonuc) {
+    this.ifade.push("=");
+    this.deger = sonuc;
+    this.giris = null;
+    this.birikim = null;
+    this.bekleyen = null;
+    this.esittirSonrasi = true;
+    this.gecmis.unshift({ ifade: this.ifadeMetni, sonuc: sayiMetni(sonuc), deger: sonuc });
+    if (this.gecmis.length > GECMIS_SINIRI) this.gecmis.length = GECMIS_SINIRI;
+  }
+
+  /** Sıfıra bölme ya da taşmada hata ekranı açar ve null döner. */
+  #uygula(a, op, b) {
+    const r = op === "+" ? a + b : op === "−" ? a - b : op === "×" ? a * b : b === 0 ? NaN : a / b;
+    if (!Number.isFinite(r) || Math.abs(r) >= TASMA) {
+      this.temizle(); // geçmiş kalır
+      this.hata = true;
+      return null;
+    }
+    return r;
+  }
 }
 
 // ---------- 1. sekme: a = rakam, b = yüzde ----------

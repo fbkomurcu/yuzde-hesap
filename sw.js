@@ -1,6 +1,6 @@
 // İnternetsiz çalışma: tüm dosyalar saklanır, önce saklanandan verilir, arkada yenisi alınır.
 // Dosyaları değiştirince SURUM'u artır; telefonlar bir sonraki açılışta yeni sürümü alır.
-const SURUM = "yuzde-hesap-1.3.0";
+const SURUM = "yuzde-hesap-1.4.0";
 const DOSYALAR = [
   "./", "index.html", "stil.css", "uygulama.js", "hesaplar.js", "tinos.ttf",
   "manifest.webmanifest", "ikon.svg", "ikon-180.png", "ikon-192.png", "ikon-512.png", "ikon-maskable-512.png",

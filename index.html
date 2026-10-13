@@ -40,6 +40,27 @@
     <p class="imza">Bu uygulama Burak Kömürcü tarafından yapılmıştır</p>
   </main>
 
+  <aside id="hm" class="hm" aria-label="Hesap makinesi">
+    <div class="hm-ust" id="hm-ust">
+      <div class="hm-cubuk">
+        <button type="button" id="hm-gecmis" class="hm-kucuk-dugme">Geçmiş</button>
+        <button type="button" id="hm-tutamak" class="hm-tutamak" aria-label="Hesap makinesini aç / küçült">
+          <span class="cizgi"></span><span id="hm-durum" class="hm-durum"></span>
+        </button>
+        <button type="button" id="hm-titresim" class="hm-kucuk-dugme" aria-pressed="true">Titreşim ✓</button>
+      </div>
+      <div id="hm-ekran" class="hm-ekran" title="Kopyalamak için uzun bas">
+        <div id="hm-ifade" class="hm-ifade">&nbsp;</div>
+        <div id="hm-sonuc" class="hm-sonuc">0</div>
+      </div>
+    </div>
+    <div id="hm-tuslar" class="hm-tuslar"></div>
+    <div id="hm-gecmis-liste" class="hm-acilir gecmis-liste" hidden></div>
+    <div id="hm-menu" class="hm-acilir hm-menu" hidden>
+      <button type="button" id="hm-yapistir">Rakam kutusuna yapıştır</button>
+    </div>
+  </aside>
+
   <div id="mesaj" class="mesaj" role="status" aria-live="polite"></div>
 </body>
 </html>

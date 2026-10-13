@@ -362,3 +362,154 @@ main {
   white-space: nowrap;
 }
 .mesaj.gorunur { opacity: 1; transform: translate(-50%, 0); }
+
+/* ---- Hesap makinesi paneli: dikte altta sabit, yatayda sağda ---- */
+:root { --panel-y: 0px; --panel-g: 0px; --hm-zemin: #EAE8DF; --hm-rakam: #FFFFFF; --hm-gri: #DDDBD1; --hm-ekran: #F6F5EF; }
+@media (prefers-color-scheme: dark) {
+  :root { --hm-zemin: #1C211D; --hm-rakam: #2C322D; --hm-gri: #353B36; --hm-ekran: #101411; }
+}
+
+/* Liste panelin üstünde biter: panelin yüksekliği kadar alt boşluk (JS --panel-y'yi ölçer). */
+main { padding-bottom: calc(16px + var(--panel-y)); }
+.mesaj { bottom: calc(16px + var(--panel-y)); }
+
+.hm {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  z-index: 6;
+  background: var(--hm-zemin);
+  border-radius: 20px 20px 0 0;
+  box-shadow: 0 -2px 12px rgba(0, 0, 0, .18);
+  padding: 0 calc(10px + env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom)) calc(10px + env(safe-area-inset-left));
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+.hm-ust { touch-action: none; }
+.hm-cubuk { display: flex; align-items: center; height: 36px; }
+.hm-kucuk-dugme {
+  background: none; border: 0; border-radius: 999px;
+  color: var(--ikincil); font-size: 14px; font-weight: 500;
+  padding: 6px 10px;
+}
+.hm-kucuk-dugme:active { background: rgba(127, 127, 127, .15); }
+#hm-titresim[aria-pressed="false"] { color: var(--soluk); opacity: .7; }
+.hm-tutamak {
+  flex: 1; align-self: stretch;
+  background: none; border: 0; border-radius: 8px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  padding: 0;
+}
+.hm-tutamak .cizgi { width: 40px; height: 4px; border-radius: 2px; background: var(--soluk); opacity: .45; }
+.hm-durum { font-size: 12px; font-weight: 600; color: var(--ikincil); white-space: nowrap; }
+.hm-durum:empty { display: none; }
+
+.hm-ekran {
+  background: var(--hm-ekran);
+  border-radius: 10px;
+  padding: 4px 12px;
+  text-align: right;
+  overflow: hidden;
+}
+.hm-ifade {
+  font-size: 15px; color: var(--soluk); opacity: .85;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  direction: rtl; /* uzun işlemde sonu (= tarafı) görünsün; sıra içteki ltr ile korunur */
+}
+.hm-ifade bdi { direction: ltr; unicode-bidi: isolate; }
+.hm-sonuc {
+  font-size: 34px; line-height: 42px; font-weight: 700;
+  color: var(--sonuc);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.hm-sonuc.hata { color: var(--uyari); }
+
+.hm-tuslar {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-auto-rows: 50px;
+  gap: 5px;
+  margin-top: 5px;
+}
+.hm-kucuk .hm-tuslar, .klavye .hm-tuslar { display: none; }
+.hm-tus {
+  border: 0; border-radius: 12px;
+  background: var(--hm-rakam);
+  color: var(--yazi);
+  font-size: 24px; font-weight: 500;
+  transition: background-color .15s;
+  touch-action: manipulation;
+}
+.hm-tus.hm-op { background: rgba(212, 166, 42, .28); font-weight: 700; font-size: 22px; }
+.hm-tus.gri { background: var(--hm-gri); color: var(--ikincil); font-weight: 700; font-size: 22px; }
+.hm-tus.esittir { background: var(--yesil); color: #fff; font-weight: 700; }
+.hm-tus.sifir { grid-column: span 2; }
+.hm-tus:active { filter: brightness(.92); }
+.hm-tus.yaniyor { background: var(--hardal); color: var(--yesil); }
+
+.hm-acilir {
+  position: absolute;
+  z-index: 7;
+  background: var(--kart);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, .25);
+  padding: 6px 0;
+}
+.hm-acilir[hidden] { display: none; }
+.gecmis-liste { left: 10px; bottom: calc(100% - 36px); max-height: 60vh; overflow-y: auto; min-width: 220px; max-width: calc(100% - 20px); }
+.gecmis-liste button, .hm-menu button {
+  display: block; width: 100%;
+  background: none; border: 0; text-align: left;
+  padding: 8px 16px; color: var(--yazi);
+}
+.gecmis-liste button:active, .hm-menu button:active { background: rgba(127, 127, 127, .15); }
+.gecmis-liste .g-ifade { display: block; font-size: 13px; color: var(--soluk); font-variant-numeric: tabular-nums; }
+.gecmis-liste .g-sonuc { display: block; font-size: 18px; font-weight: 700; color: var(--sonuc); font-variant-numeric: tabular-nums; }
+.gecmis-liste .g-bos { padding: 8px 16px; color: var(--soluk); }
+.hm-menu { left: 10px; top: 100px; }
+.hm-menu button { font-size: 16px; padding: 12px 18px; }
+
+/* Satırdaki ↓ (hesap makinesine aktar) ve ▶ (hesap makinesinde göster) */
+.aktar {
+  width: 34px; height: 34px;
+  margin-left: 6px;
+  vertical-align: top;
+  border: 1px solid var(--hardal); border-radius: 50%;
+  background: none; color: var(--sonuc);
+  font-size: 18px; font-weight: 700; padding: 0;
+}
+.aktar:active { background: rgba(212, 166, 42, .12); }
+.sonuc .deger { max-width: calc(100% - 40px); vertical-align: top; }
+.oynat-dugme {
+  display: block;
+  margin: 8px 0 0 auto;
+  border: 1px solid var(--hardal); border-radius: 999px;
+  background: none; color: var(--sonuc);
+  font-weight: 600; padding: 8px 14px;
+}
+.oynat-dugme:active { background: rgba(212, 166, 42, .12); }
+
+/* Yatay: solda satırlar, sağda hesap makinesi */
+@media (orientation: landscape) and (min-width: 600px) {
+  body { padding-right: 320px; }
+  main { padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
+  .mesaj { bottom: calc(16px + env(safe-area-inset-bottom)); left: calc(50% - 160px); }
+  .hm {
+    left: auto; top: 0; width: 320px;
+    border-radius: 16px 0 0 16px;
+    box-shadow: -2px 0 12px rgba(0, 0, 0, .18);
+    padding-top: calc(4px + env(safe-area-inset-top));
+    display: flex; flex-direction: column;
+  }
+  .hm-tuslar { flex: 1; grid-auto-rows: minmax(48px, 1fr); }
+  .hm-sonuc { font-size: 30px; line-height: 38px; }
+  /* Yatayda kart dar alanda: sonuç yine altta */
+  .kart, .kart.esit {
+    grid-template-columns: minmax(0, 1fr) minmax(0, .8fr) minmax(0, 1.25fr) 36px;
+    grid-template-areas: "a b islem sil" "sonuc sonuc sonuc sonuc" "fd fd fd fd" "formul formul formul formul" "tus tus tus tus";
+  }
+  .kart.esit { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.25fr) 36px; }
+  .sonuc .deger { font-size: 30px; }
+}

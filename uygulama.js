@@ -1,5 +1,5 @@
 // Yüzde Hesap — ekran. Hesaplar hesaplar.js'tedir.
-import { YUZDE_ISLEMLERI, KARSILASTIRMA_SORULARI, BOS, hesapla, hesapMakinesi, girisDuzelt, esle, panoMetni, rakamlarla } from "./hesaplar.js";
+import { YUZDE_ISLEMLERI, KARSILASTIRMA_SORULARI, BOS, EKSI, hesapla, hesapMakinesi, girisDuzelt, esle, panoMetni, rakamlarla, HesapMotoru, hamYaz, oynatma } from "./hesaplar.js";
 
 const SEKMELER = {
   yuzde: { ustSatir: "Rakam · Yüzde · İşlem → Sonuç", etiket1: "Rakam", etiket2: "Yüzde", islemEtiketi: "İşlem", yuzdeKutusu: true, islemler: YUZDE_ISLEMLERI },
@@ -26,10 +26,13 @@ function yukle() {
           islem: Number.isInteger(s.islem) && s.islem >= 0 && s.islem < SEKMELER[k].islemler.length ? s.islem : 0,
         }));
       }
-      return { secili: d.secili in SEKMELER ? d.secili : "yuzde", satirlar: d.satirlar, hepGoster: d.hepGoster === true, tusHep: d.tusHep === true };
+      return {
+        secili: d.secili in SEKMELER ? d.secili : "yuzde", satirlar: d.satirlar, hepGoster: d.hepGoster === true, tusHep: d.tusHep === true,
+        panelTam: d.panelTam !== false, titresim: d.titresim !== false,
+      };
     }
   } catch { /* saklama kapalı/bozuk: boş başla */ }
-  return { secili: "yuzde", satirlar: { yuzde: [yeniSatir()], karsilastir: [yeniSatir()] }, hepGoster: false, tusHep: false };
+  return { secili: "yuzde", satirlar: { yuzde: [yeniSatir()], karsilastir: [yeniSatir()] }, hepGoster: false, tusHep: false, panelTam: true, titresim: true };
 }
 
 const durum = yukle();
@@ -132,6 +135,9 @@ function sayiKutusu(sinif, etiket, yuzde, satir, alan, enter, yenile) {
     sakla();
   });
 
+  // Hesap makinesindeki sonuç "Rakam kutusuna yapıştır" ile en son dokunulan kutuya yazılır.
+  input.addEventListener("focus", () => { sonKutu = { sekme: durum.secili, id: satir.id, alan }; });
+
   input.addEventListener("keydown", (e) => {
     if (e.key !== "Enter") return;
     e.preventDefault();
@@ -189,6 +195,12 @@ function sonucCiz(kutu, s) {
     deger.addEventListener("click", () => { const m = panoMetni(s.metin); kopyala(m, `Kopyalandı: ${m}`); });
   }
   const parcalar = [deger];
+  if (dolu) {
+    const aktar = el("button", "aktar", { type: "button", textContent: "↓", title: "Hesap makinesine aktar" });
+    aktar.setAttribute("aria-label", "Hesap makinesine aktar");
+    aktar.addEventListener("click", () => hmAktar(s.metin));
+    parcalar.push(aktar);
+  }
   if (s.not) parcalar.push(el("div", "not", { textContent: s.not }));
   if (s.uyari) parcalar.push(el("div", "uyari", { textContent: s.uyari }));
   kutu.replaceChildren(...parcalar);
@@ -251,6 +263,9 @@ function tusCiz(kutu, hm) {
     const kisa = hm.casio.map((t) => `[${t.metin}]`).join(" ");
     parcalar.push(el("div", "tus-casio", { textContent: `Casio'da % tuşuyla: ${kisa} (her hesap makinesinde aynı çalışmayabilir)` }));
   }
+  const oynat = el("button", "oynat-dugme", { type: "button", textContent: "▶  Hesap makinesinde göster" });
+  oynat.addEventListener("click", () => hmOynat(hm));
+  parcalar.push(oynat);
   kutu.replaceChildren(...parcalar);
 }
 
@@ -325,6 +340,227 @@ $("#ekle").addEventListener("click", () => {
 });
 
 ciz();
+
+// ---------- Hesap makinesi paneli (iki sekmede ortak) ----------
+
+const motor = new HesapMotoru();
+const hm = $("#hm");
+let sonKutu = null;
+const TUS_DUZENI = ["C", "⌫", "±", "÷", "7", "8", "9", "×", "4", "5", "6", "−", "1", "2", "3", "+", "0", ",", "="];
+const TUS_ADLARI = { C: "Tümünü sil", "⌫": "Son haneyi sil", "±": "Eksi artı", "÷": "Bölü", "×": "Çarpı", "−": "Eksi", "+": "Artı", "=": "Eşittir", ",": "Virgül" };
+const tusDugmeleri = {};
+
+for (const t of TUS_DUZENI) {
+  const sinif = t === "=" ? " esittir" : "+−×÷".includes(t) ? " hm-op" : "C⌫±".includes(t) ? " gri" : t === "0" ? " sifir" : "";
+  const b = el("button", "hm-tus" + sinif, { type: "button", textContent: t });
+  if (TUS_ADLARI[t]) b.setAttribute("aria-label", TUS_ADLARI[t]);
+  b.addEventListener("click", () => {
+    if (durum.titresim) navigator.vibrate?.(8);
+    hmBas(t);
+  });
+  tusDugmeleri[t] = b;
+  $("#hm-tuslar").append(b);
+}
+
+function hmBas(t) {
+  motor.bas(t);
+  hmCiz();
+}
+
+/** Ekran satırı: üstte küçük işlem, altta büyük sonuç; uzun sonuç kutuya sığana kadar küçülür. */
+function hmCiz() {
+  $("#hm-ifade").replaceChildren(el("bdi", "", { textContent: motor.ifadeMetni || "\u00a0" }));
+  const sonuc = $("#hm-sonuc");
+  sonuc.textContent = motor.ekranMetni;
+  sonuc.classList.toggle("hata", motor.hata);
+  sonuc.style.fontSize = "";
+  const ekran = $("#hm-ekran");
+  let boy = parseFloat(getComputedStyle(sonuc).fontSize);
+  while (sonuc.scrollWidth > ekran.clientWidth - 24 && boy > 16) {
+    boy -= 2;
+    sonuc.style.fontSize = boy + "px";
+  }
+}
+
+/** Panel küçük/tam; klavye açıkken (rakam kutusu yazılırken) CSS küçük gösterir, kayıtlı durum değişmez. */
+function panelCiz() {
+  hm.classList.toggle("hm-kucuk", !durum.panelTam);
+  $("#hm-tutamak").setAttribute("aria-expanded", String(durum.panelTam));
+  $("#hm-titresim").setAttribute("aria-pressed", String(durum.titresim));
+  $("#hm-titresim").textContent = durum.titresim ? "Titreşim ✓" : "Titreşim ✕";
+}
+
+function panelTamYap(tam) {
+  if (tam && document.activeElement?.matches(".kutu input")) document.activeElement.blur();
+  durum.panelTam = tam;
+  panelCiz();
+  sakla();
+}
+
+// Panelin yüksekliği kadar liste altına boşluk: liste panelin üstünde biter.
+new ResizeObserver(() => document.documentElement.style.setProperty("--panel-y", hm.offsetHeight + "px")).observe(hm);
+
+// Tutamak: dokununca aç/küçült; aşağı kaydırınca küçül, yukarı kaydırınca aç.
+let surukleY = null;
+$("#hm-ust").addEventListener("pointerdown", (e) => { surukleY = e.clientY; });
+$("#hm-ust").addEventListener("pointerup", (e) => {
+  if (surukleY === null) return;
+  const fark = e.clientY - surukleY;
+  surukleY = null;
+  if (fark > 40) panelTamYap(false);
+  else if (fark < -40) panelTamYap(true);
+  else if (e.target.closest("#hm-tutamak")) panelTamYap(!durum.panelTam);
+});
+$("#hm-ust").addEventListener("pointercancel", () => { surukleY = null; });
+
+$("#hm-titresim").addEventListener("click", () => {
+  durum.titresim = !durum.titresim;
+  panelCiz();
+  sakla();
+  mesajGoster(durum.titresim ? "Tuş titreşimi açık" : "Tuş titreşimi kapalı");
+});
+
+// Klavye açılınca panel küçülür, kapanınca eski haline döner.
+document.addEventListener("focusin", (e) => { if (e.target.matches(".kutu input")) document.body.classList.add("klavye"); });
+document.addEventListener("focusout", (e) => {
+  if (!e.target.matches(".kutu input")) return;
+  setTimeout(() => { if (!document.activeElement?.matches(".kutu input")) document.body.classList.remove("klavye"); }, 50);
+});
+
+// ---- Geçmiş ----
+const gecmisListe = $("#hm-gecmis-liste");
+$("#hm-gecmis").addEventListener("click", (e) => {
+  e.stopPropagation();
+  if (!gecmisListe.hidden) { gecmisListe.hidden = true; return; }
+  gecmisListe.replaceChildren(
+    ...(motor.gecmis.length
+      ? motor.gecmis.map((k) => {
+        const b = el("button", "", { type: "button" });
+        b.append(el("span", "g-ifade", { textContent: k.ifade }), el("span", "g-sonuc", { textContent: k.sonuc }));
+        b.addEventListener("click", () => {
+          oynatmayiDurdur();
+          motor.aktar(k.deger, k.ifade);
+          hmCiz();
+          gecmisListe.hidden = true;
+        });
+        return b;
+      })
+      : [el("div", "g-bos", { textContent: "Henüz işlem yok" })]),
+  );
+  gecmisListe.hidden = false;
+});
+document.addEventListener("click", (e) => {
+  if (!e.target.closest("#hm-gecmis-liste")) gecmisListe.hidden = true;
+  if (!e.target.closest("#hm-menu") && !uzunBasildi) $("#hm-menu").hidden = true;
+});
+
+// ---- Ekrana uzun basma: kopyala + "Rakam kutusuna yapıştır" menüsü ----
+// iPhone'da panoya yazmak dokunuşun içinde olmalı: menü süre dolunca açılır, kopyalama parmak kalkınca yapılır.
+let uzunZaman = null;
+let uzunBasildi = false;
+const ekran = $("#hm-ekran");
+ekran.addEventListener("pointerdown", () => {
+  uzunBasildi = false;
+  clearTimeout(uzunZaman);
+  uzunZaman = setTimeout(() => {
+    if (motor.hata) return;
+    uzunBasildi = true;
+    if (durum.titresim) navigator.vibrate?.(15);
+    const menu = $("#hm-menu");
+    menu.style.top = ekran.offsetTop + ekran.offsetHeight + 4 + "px";
+    menu.hidden = false;
+  }, 500);
+});
+const uzunIptal = () => clearTimeout(uzunZaman);
+ekran.addEventListener("pointermove", (e) => { if (Math.abs(e.movementY) > 4) uzunIptal(); });
+ekran.addEventListener("pointercancel", uzunIptal);
+ekran.addEventListener("pointerup", () => {
+  uzunIptal();
+  if (uzunBasildi) kopyala(panoMetni(motor.ekranMetni), `Kopyalandı: ${motor.ekranMetni}`);
+  setTimeout(() => { uzunBasildi = false; }, 0);
+});
+ekran.addEventListener("contextmenu", (e) => e.preventDefault());
+
+$("#hm-yapistir").addEventListener("click", () => {
+  $("#hm-menu").hidden = true;
+  mesajGoster(kutuyaYapistir());
+});
+
+function kutuyaYapistir() {
+  if (motor.hata) return "Ekranda hata var";
+  if (!sonKutu) return "Önce bir satırdaki rakam kutusuna dokunun";
+  const satir = durum.satirlar[sonKutu.sekme].find((s) => s.id === sonKutu.id);
+  if (!satir) return "O satır silinmiş";
+  const ham = hamYaz(motor.ekrandaki);
+  if (girisDuzelt(satir[sonKutu.alan], ham) !== ham) return "Sayı kutuya sığmıyor";
+  satir[sonKutu.alan] = ham;
+  durum.secili = sonKutu.sekme;
+  ciz();
+  sakla();
+  return `Rakam kutusuna yapıştırıldı: ${motor.ekranMetni}`;
+}
+
+/** Satır sonucunu ("1.250,00", "−%90,48") hesap makinesine getirir. */
+function hmAktar(metin) {
+  const sayi = Number(metin.replace("%", "").replaceAll(".", "").replace(",", ".").replace(EKSI, "-"));
+  if (!Number.isFinite(sayi)) return;
+  oynatmayiDurdur();
+  motor.aktar(sayi);
+  hmCiz();
+  panelTamYap(true);
+}
+
+// ---- "▶ Hesap makinesinde göster": tuşlar tek tek basılır, basılan tuş yanar ----
+const TUS_MS = 400, TUS_ARASI_MS = 90, ADIM_ARASI_MS = 900;
+let oynatmaNo = 0;
+const bekle = (ms) => new Promise((r) => setTimeout(r, ms));
+
+async function hmOynat(hesap) {
+  const no = ++oynatmaNo;
+  const surer = () => no === oynatmaNo;
+  document.activeElement?.blur?.();
+  panelTamYap(true);
+  const adimlar = oynatma(hesap);
+  const durumYazisi = $("#hm-durum");
+  durumYazisi.textContent = "durdurmak için dokun";
+  document.body.classList.add("oynuyor");
+  try {
+    await bekle(250);
+    for (let i = 0; i < adimlar.length && surer(); i++) {
+      if (adimlar.length > 1) durumYazisi.textContent = `Adım ${i + 1}/${adimlar.length} · durdurmak için dokun`;
+      if (i > 0) await bekle(ADIM_ARASI_MS);
+      for (const t of adimlar[i]) {
+        if (!surer()) return;
+        const b = tusDugmeleri[t];
+        b.classList.add("yaniyor");
+        hmBas(t);
+        await bekle(TUS_MS);
+        b.classList.remove("yaniyor");
+        await bekle(TUS_ARASI_MS);
+      }
+    }
+    if (surer()) await bekle(600);
+  } finally {
+    if (surer()) {
+      durumYazisi.textContent = "";
+      document.body.classList.remove("oynuyor");
+      oynatmaNo++;
+    }
+  }
+}
+
+function oynatmayiDurdur() {
+  oynatmaNo++;
+  $("#hm-durum").textContent = "";
+  document.body.classList.remove("oynuyor");
+  Object.values(tusDugmeleri).forEach((b) => b.classList.remove("yaniyor"));
+}
+
+// Oynatma sırasında ekrana dokunmak animasyonu durdurur.
+document.addEventListener("pointerdown", () => { if (document.body.classList.contains("oynuyor")) oynatmayiDurdur(); }, true);
+
+panelCiz();
+hmCiz();
 
 // İnternetsiz çalışma: dosyalar ilk açılışta saklanır.
 if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
