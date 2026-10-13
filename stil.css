@@ -445,7 +445,6 @@ main { padding-bottom: calc(16px + var(--panel-y)); }
 .hm-tus.hm-op { background: rgba(212, 166, 42, .28); font-weight: 700; font-size: 22px; }
 .hm-tus.gri { background: var(--hm-gri); color: var(--ikincil); font-weight: 700; font-size: 22px; }
 .hm-tus.esittir { background: var(--yesil); color: #fff; font-weight: 700; }
-.hm-tus.sifir { grid-column: span 2; }
 .hm-tus:active { filter: brightness(.92); }
 .hm-tus.yaniyor { background: var(--hardal); color: var(--yesil); }
 

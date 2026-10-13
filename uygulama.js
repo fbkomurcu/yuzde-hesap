@@ -346,12 +346,12 @@ ciz();
 const motor = new HesapMotoru();
 const hm = $("#hm");
 let sonKutu = null;
-const TUS_DUZENI = ["C", "⌫", "±", "÷", "7", "8", "9", "×", "4", "5", "6", "−", "1", "2", "3", "+", "0", ",", "="];
-const TUS_ADLARI = { C: "Tümünü sil", "⌫": "Son haneyi sil", "±": "Eksi artı", "÷": "Bölü", "×": "Çarpı", "−": "Eksi", "+": "Artı", "=": "Eşittir", ",": "Virgül" };
+const TUS_DUZENI = ["C", "⌫", "±", "÷", "7", "8", "9", "×", "4", "5", "6", "−", "1", "2", "3", "+", "%", "0", ",", "="];
+const TUS_ADLARI = { C: "Tümünü sil", "⌫": "Son haneyi sil", "±": "Eksi artı", "÷": "Bölü", "×": "Çarpı", "−": "Eksi", "+": "Artı", "=": "Eşittir", "%": "Yüzde", ",": "Virgül" };
 const tusDugmeleri = {};
 
 for (const t of TUS_DUZENI) {
-  const sinif = t === "=" ? " esittir" : "+−×÷".includes(t) ? " hm-op" : "C⌫±".includes(t) ? " gri" : t === "0" ? " sifir" : "";
+  const sinif = t === "=" ? " esittir" : "+−×÷%".includes(t) ? " hm-op" : "C⌫±".includes(t) ? " gri" : "";
   const b = el("button", "hm-tus" + sinif, { type: "button", textContent: t });
   if (TUS_ADLARI[t]) b.setAttribute("aria-label", TUS_ADLARI[t]);
   b.addEventListener("click", () => {

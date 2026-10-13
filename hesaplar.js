@@ -210,7 +210,8 @@ function carpimla(a, b, carpan, aciklama, casio) {
 // ---------- Hesap makinesi paneli (Android: HesapMotoru.kt) ----------
 // Masa tipi basit hesap makinesi: tuşlar soldan sağa işlenir, işlem önceliği yoktur (2 + 3 × 4 = 20).
 // Paneldeki hesap makinesi de satırlardaki "hesap makinesi adımları" da bunu kullanır.
-// Tuşlar: "0".."9", ",", "+", "−", "×", "÷", "=", "C", "⌫", "±".
+// Tuşlar: "0".."9", ",", "+", "−", "×", "÷", "=", "%", "C", "⌫", "±".
+// % Casio gibi: A × B % = A'nın %B'si, A + B % = %B eklenmiş, A − B % = %B düşülmüş, A ÷ B % = A / (B/100), tek başına B % = B/100.
 
 export const GECMIS_SINIRI = 20;
 const EN_COK_HANE = 25;
@@ -280,6 +281,7 @@ export class HesapMotoru {
     else if (tus === "⌫") this.#geriSil();
     else if (tus === "±") this.#isaretDegistir();
     else if (tus === "=") this.#esittir();
+    else if (tus === "%") this.#yuzde();
     else if ("+−×÷".includes(tus) && tus.length === 1) this.#islem(tus);
     else if (tus === ",") this.#virgul();
     else if (/^[0-9]$/.test(tus)) this.#rakam(tus);
@@ -392,6 +394,30 @@ export class HesapMotoru {
       this.giris = null;
       this.deger = x;
       this.esittirSonrasi = true;
+    }
+  }
+
+  #yuzde() {
+    const x = this.ekrandaki;
+    if (this.bekleyen !== null && this.birikim !== null) {
+      const b = this.birikim;
+      this.ifade.push(this.giris !== null ? hamGoster(this.giris) : sayiMetni(x), "%");
+      const op = this.bekleyen;
+      const r = op === "×" ? this.#uygula(b, "×", x / 100)
+        : op === "+" ? this.#uygula(b, "+", (b * x) / 100)
+          : op === "−" ? this.#uygula(b, "−", (b * x) / 100)
+            : this.#uygula(b, "÷", x / 100);
+      if (r === null) return;
+      this.sonIslem = null;
+      this.#bitir(r);
+    } else {
+      // Tek başına: 20 % → 0,2 (yazılmış sayı gibi, üzerine işlem yapılabilir).
+      if (this.esittirSonrasi) {
+        this.ifade = [];
+        this.esittirSonrasi = false;
+        this.sonIslem = null;
+      }
+      this.giris = hamYaz(x / 100);
     }
   }
 
